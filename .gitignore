@@ -1,0 +1,7 @@
+**/.idea
+**/target
+/AxonServer-4.5.13
+/docker/axon/data/
+/docker/axon/eventdata
+/docker/axon/events
+*.jar
