@@ -7,6 +7,7 @@ import com.mbt.estore.productservice.core.events.ProductCreatedEvent;
 import com.mbt.estore.productservice.core.repository.ProductRepository;
 import org.axonframework.config.ProcessingGroup;
 import org.axonframework.eventhandling.EventHandler;
+import org.axonframework.eventhandling.ResetHandler;
 import org.axonframework.messaging.interceptors.ExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,5 +65,10 @@ public class ProductsEventsHandler {
         productRepository.save(productEntity);
         LOGGER.debug("ProductReservationCancelledEvent: New Product Quantity" + productEntity.getQuantity());
         LOGGER.info("Product Reservation Cancelled Event is called for OrderId " + event.getOrderId() + " and product Id " + event.getProductId());
+    }
+
+    @ResetHandler
+    public void reset(){
+        productRepository.deleteAll();
     }
 }
