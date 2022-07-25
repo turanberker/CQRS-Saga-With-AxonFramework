@@ -13,6 +13,8 @@ import com.mbt.estore.orderservice.command.commands.RejectOrderCommand;
 import com.mbt.estore.orderservice.core.events.OrderApprovedEvent;
 import com.mbt.estore.orderservice.core.events.OrderCreatedEvent;
 import com.mbt.estore.orderservice.core.events.OrderRejectedEvent;
+import com.mbt.estore.orderservice.core.model.OrderSummary;
+import com.mbt.estore.orderservice.query.FindOrderQuery;
 import org.axonframework.commandhandling.CommandCallback;
 import org.axonframework.commandhandling.CommandMessage;
 import org.axonframework.commandhandling.CommandResultMessage;
@@ -24,6 +26,7 @@ import org.axonframework.modelling.saga.EndSaga;
 import org.axonframework.modelling.saga.SagaEventHandler;
 import org.axonframework.modelling.saga.StartSaga;
 import org.axonframework.queryhandling.QueryGateway;
+import org.axonframework.queryhandling.QueryUpdateEmitter;
 import org.axonframework.spring.stereotype.Saga;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +47,9 @@ public class OrderSaga {
 
     @Autowired
     private transient DeadlineManager deadlineManager;
+
+    @Autowired
+    private transient QueryUpdateEmitter queryUpdateEmitter;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderSaga.class);
 
@@ -66,7 +72,9 @@ public class OrderSaga {
             @Override
             public void onResult(CommandMessage<? extends ReserveProductCommand> commandMessage, CommandResultMessage<?> commandResultMessage) {
                 if (commandResultMessage.isExceptional()) {
-                    //start a compansating transaction
+                    RejectOrderCommand rejectOrderCommand = new RejectOrderCommand(commandMessage.getPayload().getOrderId(),
+                            commandResultMessage.exceptionResult().getMessage());
+                    commandGateway.send(rejectOrderCommand);
                 }
             }
         });
@@ -147,6 +155,8 @@ public class OrderSaga {
     public void handle(OrderApprovedEvent orderApprovedEvent) {
         LOGGER.info("Order is approved. Order saga is completed for orderId:" + orderApprovedEvent.getOrderId());
         //SagaLifecycle.end();
+        queryUpdateEmitter.emit(FindOrderQuery.class, findOrderQuery ->true,
+                new OrderSummary(orderApprovedEvent.getOrderId(), orderApprovedEvent.getOrderStatus(),""));
     }
 
 
@@ -160,6 +170,8 @@ public class OrderSaga {
     @SagaEventHandler(associationProperty = "orderId")
     public void handle(OrderRejectedEvent orderRejectedEvent) {
         LOGGER.info("Successfully rejected order with id " + orderRejectedEvent.getOrderId());
+        queryUpdateEmitter.emit(FindOrderQuery.class, findOrderQuery ->true,
+                new OrderSummary(orderRejectedEvent.getOrderId(), orderRejectedEvent.getOrderStatus(),orderRejectedEvent.getReason()));
     }
 
     @DeadlineHandler(deadlineName = PAYMENT_PROCESSING_TIMEOUT_DEADLINE)
